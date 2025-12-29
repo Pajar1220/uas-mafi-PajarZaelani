@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Simulasi Peluang Mahasiswa DO</title>
+  </head>
+  <body>
+    <h3>🎓 Simulasi Peluang Mhs D.O</h3>
+    <p>Pilih faktor risiko yang dialami:</p>
+
+    <label><input type="checkbox" value="0.25" /> Kehadiran < 75%</label><br />
+    <label><input type="checkbox" value="0.35" /> Nilai Rata-rata < 2.0</label
+    ><br />
+    <label><input type="checkbox" value="0.15" /> Tidak aktif di LMS</label
+    ><br />
+    <label
+      ><input type="checkbox" value="0.15" /> Belum lulus MK prasyarat</label
+    ><br />
+    <label
+      ><input type="checkbox" value="0.10" /> Masalah disiplin / etika</label
+    ><br /><br />
+
+    <button onclick="hitung()">Hitung Peluang DO</button>
+    <div class="result" id="hasil"></div>
+
+    <script>
+      function hitung() {
+        const checkboxes = document.querySelectorAll("input[type=checkbox]");
+        let total = 0;
+        let aktif = 0;
+
+        checkboxes.forEach((c) => {
+          if (c.checked) {
+            total += parseFloat(c.value);
+            aktif++;
+          }
+        });
+
+        if (aktif === 0) {
+          document.getElementById("hasil").innerHTML =
+            "✅ Tidak ada faktor risiko. Peluang DO = 0%.";
+          return;
+        }
+
+        // pendekatan sederhana untuk peluang kumulatif
+        const pDO = 1 - Math.pow(1 - total / aktif, aktif);
+        const persen = (pDO * 100).toFixed(2);
+
+        let kategori = "";
+        if (pDO < 0.3) kategori = "Risiko Rendah";
+        else if (pDO < 0.6) kategori = "Risiko Sedang";
+        else kategori = "⚠️ Risiko Tinggi – Perlu Pendampingan Akademik";
+
+        document.getElementById(
+          "hasil"
+        ).innerHTML = `<b>Peluang DO = ${persen}%</b><br>${kategori}`;
+      }
+    </script>
+  </body>
+</html>
