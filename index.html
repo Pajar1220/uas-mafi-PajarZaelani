@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UAS Matif - Family Tree (Yellow Style)</title>
+    <style>
+        /* --- 1. RESET & BASIC LAYOUT --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #FFC800; /* Warna Kuning sesuai request */
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header, .controls {
+            background: #fff;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        h1 { margin-bottom: 10px; font-size: 1.5rem; }
+        
+        .stats-box {
+            display: inline-block;
+            background: #f8f9fa;
+            padding: 5px 15px;
+            border-radius: 20px;
+            border: 1px solid #ddd;
+            font-weight: bold;
+            color: #2563eb;
+            font-size: 0.9rem;
+        }
+
+        /* --- 2. INPUT FORM STYLING --- */
+        .input-group {
+            margin-top: 15px;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        input, select, button {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        button.btn-add { background: #10b981; color: white; border: none; cursor: pointer; }
+        button.btn-add:hover { background: #059669; }
+        
+        button.btn-reset { background: #ef4444; color: white; border: none; cursor: pointer; }
+
+        /* --- 3. CSS FAMILY TREE (THE YELLOW STYLE LOGIC) --- */
+        .tree-container {
+            flex-grow: 1;
+            padding: 50px;
+            overflow: auto; /* Agar bisa discroll jika tree melebar */
+            display: flex;
+            justify-content: center;
+        }
+
+        /* Inti dari CSS Tree */
+        .tree ul {
+            padding-top: 20px; 
+            position: relative;
+            transition: all 0.5s;
+            display: flex;
+            justify-content: center;
+        }
+
+        .tree li {
+            float: left; text-align: center;
+            list-style-type: none;
+            position: relative;
+            padding: 20px 5px 0 5px;
+            transition: all 0.5s;
+        }
+
+        /* Garis Konektor (Lines) */
+        .tree li::before, .tree li::after {
+            content: ''; position: absolute; top: 0; right: 50%;
+            border-top: 2px solid #333; /* Warna garis */
+            width: 50%; height: 20px;
+        }
+        .tree li::after {
+            right: auto; left: 50%;
+            border-left: 2px solid #333;
+        }
+
+        /* Menghapus garis untuk node tunggal/pertama/terakhir */
+        .tree li:only-child::after, .tree li:only-child::before { display: none; }
+        .tree li:only-child { padding-top: 0; }
+        .tree li:first-child::before, .tree li:last-child::after { border: 0 none; }
+        .tree li:last-child::before {
+            border-right: 2px solid #333;
+            border-radius: 0 5px 0 0;
+        }
+        .tree li:first-child::after {
+            border-radius: 5px 0 0 0;
+        }
+
+        /* Garis turun ke anak */
+        .tree ul ul::before {
+            content: ''; position: absolute; top: 0; left: 50%;
+            border-left: 2px solid #333;
+            width: 0; height: 20px;
+        }
+
+        /* --- 4. NODE CARD STYLING --- */
+        .node-card {
+            background: #fff;
+            border: 2px solid #333;
+            padding: 10px;
+            border-radius: 8px;
+            display: inline-block;
+            min-width: 120px;
+            position: relative;
+            box-shadow: 2px 2px 0px rgba(0,0,0,0.1);
+            transition: .3s;
+        }
+
+        .node-card:hover { transform: translateY(-3px); box-shadow: 4px 4px 0px rgba(0,0,0,0.2); }
+
+        .node-img {
+            width: 60px; height: 60px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #ddd;
+            margin-bottom: 5px;
+            background: #eee;
+        }
+
+        .node-name { font-weight: bold; font-size: 14px; display: block; }
+        .node-role { font-size: 12px; color: #666; display: block; }
+        
+        /* Tombol Hapus Kecil */
+        .btn-delete {
+            position: absolute; top: -8px; right: -8px;
+            background: red; color: white;
+            border-radius: 50%; width: 20px; height: 20px;
+            font-size: 12px; line-height: 18px; text-align: center;
+            cursor: pointer; border: 1px solid white;
+            display: none; /* Muncul saat hover */
+        }
+        .node-card:hover .btn-delete { display: block; }
+
+        /* --- 5. VISUAL ENHANCEMENT (COLORS) --- */
+        .style-root { border-color: #2563eb; background: #eff6ff; } /* Biru */
+        .style-parent { border-color: #059669; } /* Hijau */
+        .style-leaf { border-color: #9ca3af; border-style: dashed; } /* Abu putus-putus */
+
+        footer { text-align: center; padding: 10px; font-size: 12px; color: #555; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Aplikasi Silsilah Nabi (Tree Structure)</h1>
+        
+        <div id="stats-info" class="stats-box">
+            Loading Stats...
+        </div>
+
+        <div class="controls">
+            <form id="addNodeForm" class="input-group">
+                <input type="text" id="inName" placeholder="Nama Node (cth: Abbas)" required>
+                <input type="text" id="inRole" placeholder="Peran (cth: Paman)" required>
+                
+                <select id="inParent" required>
+                    <option value="" disabled selected>Pilih Orang Tua</option>
+                </select>
+
+                <input type="file" id="inImage" accept="image/jpeg" required>
+                
+                <button type="submit" class="btn-add">+ Tambah Node</button>
+                <button type="button" class="btn-reset" onclick="resetData()">Reset Default</button>
+            </form>
+            <small style="color: #666; margin-top: 5px; display:block;">
+                *Format JPG, Max 100KB. Data disimpan di Local Storage.
+            </small>
+        </div>
+    </header>
+
+    <div class="tree-container">
+        <div class="tree" id="tree-root">
+            </div>
+    </div>
+
+    <footer>
+        UAS Matematika Informatika - Implementasi Struktur Data Tree
+    </footer>
+
+    <script>
+        // --- 1. DATA INITIALIZATION (Min 7 Node, Depth > 3) ---
+        // Menggunakan struktur 'Buyut' sebagai Root agar mencapai depth yang diminta
+        
+        // Placeholder image (Default jika error)
+        const defaultImg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ccc'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E";
+
+        const initialData = {
+            id: "root-1",
+            name: "Hasyim bin Abdu Manaf",
+            role: "Kakek Buyut (Root)",
+            image: defaultImg,
+            children: [
+                {
+                    id: "c-1",
+                    name: "Abdul Muthalib",
+                    role: "Kakek",
+                    image: defaultImg,
+                    children: [
+                        {
+                            id: "c-1-1",
+                            name: "Abdullah",
+                            role: "Ayah",
+                            image: defaultImg,
+                            children: [
+                                {
+                                    id: "c-1-1-1",
+                                    name: "Nabi Muhammad SAW",
+                                    role: "Tokoh Utama",
+                                    image: defaultImg,
+                                    children: [
+                                        { id: "c-1-1-1-1", name: "Fatimah Az-Zahra", role: "Anak", image: defaultImg, children: [] },
+                                        { id: "c-1-1-1-2", name: "Ibrahim", role: "Anak", image: defaultImg, children: [] }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            id: "c-1-2",
+                            name: "Abu Thalib",
+                            role: "Paman",
+                            image: defaultImg,
+                            children: [
+                                { id: "c-1-2-1", name: "Ali bin Abi Thalib", role: "Sepupu", image: defaultImg, children: [] }
+                            ]
+                        },
+                        {
+                            id: "c-1-3",
+                            name: "Hamzah",
+                            role: "Paman",
+                            image: defaultImg,
+                            children: []
+                        }
+                    ]
+                }
+            ]
+        };
+
+        // Load dari LocalStorage atau gunakan Initial Data
+        let familyData = JSON.parse(localStorage.getItem('familyTreeYellow')) || initialData;
+
+        // --- 2. LOGIC (MATEMATIKA INFORMATIKA: REKURSIF) ---
+
+        // Fungsi Helper: Mencari Node berdasarkan ID (Depth-First Search)
+        function findNodeById(node, id) {
+            if (node.id === id) return node;
+            if (node.children) {
+                for (let child of node.children) {
+                    const found = findNodeById(child, id);
+                    if (found) return found;
+                }
+            }
+            return null;
+        }
+
+        // Fungsi Helper: Mencari Parent dari sebuah Node untuk fitur Hapus
+        function findParentOf(root, childId) {
+            if (!root.children) return null;
+            for (let child of root.children) {
+                if (child.id === childId) return root;
+                const found = findParentOf(child, childId);
+                if (found) return found;
+            }
+            return null;
+        }
+
+        // Fungsi: Hitung Statistik (Jumlah Node & Kedalaman)
+        function calculateStats(node, depth = 1) {
+            if (!node) return { count: 0, maxDepth: 0 };
+            
+            let count = 1; // Hitung node ini
+            let maxDepth = depth;
+
+            if (node.children && node.children.length > 0) {
+                node.children.forEach(child => {
+                    const childStats = calculateStats(child, depth + 1);
+                    count += childStats.count;
+                    if (childStats.maxDepth > maxDepth) {
+                        maxDepth = childStats.maxDepth;
+                    }
+                });
+            }
+            return { count, maxDepth };
+        }
+
+        // --- 3. RENDERING (VISUALISASI) ---
+        
+        function renderTree(node) {
+            // Tentukan Styling Class berdasarkan posisi
+            let styleClass = "node-card";
+            if (node.id === familyData.id) styleClass += " style-root"; // Root
+            else if (node.children && node.children.length > 0) styleClass += " style-parent"; // Punya anak
+            else styleClass += " style-leaf"; // Daun (tidak punya anak)
+
+            // Buat HTML Node
+            const li = document.createElement("li");
+            li.innerHTML = `
+                <div class="${styleClass}">
+                    <button class="btn-delete" onclick="deleteNode('${node.id}')" title="Hapus Node">×</button>
+                    <img src="${node.image}" class="node-img" alt="img">
+                    <span class="node-name">${node.name}</span>
+                    <span class="node-role">${node.role}</span>
+                </div>
+            `;
+
+            // Rekursif Render Children
+            if (node.children && node.children.length > 0) {
+                const ul = document.createElement("ul");
+                node.children.forEach(child => {
+                    ul.appendChild(renderTree(child));
+                });
+                li.appendChild(ul);
+            }
+
+            return li;
+        }
+
+        function refreshUI() {
+            const rootUl = document.createElement("ul");
+            rootUl.appendChild(renderTree(familyData));
+            
+            const container = document.getElementById("tree-root");
+            container.innerHTML = "";
+            container.appendChild(rootUl);
+
+            // Update Stats
+            const stats = calculateStats(familyData);
+            document.getElementById("stats-info").textContent = 
+                `📊 Statistik Tree: ${stats.count} Nodes | Kedalaman (Depth): ${stats.maxDepth} Level`;
+
+            // Update Dropdown Parent untuk Form
+            updateParentDropdown();
+            
+            // Simpan ke Storage
+            localStorage.setItem('familyTreeYellow', JSON.stringify(familyData));
+        }
+
+        // --- 4. FLATTENING TREE FOR DROPDOWN ---
+        // Mengubah Tree menjadi List datar agar bisa masuk ke <select>
+        function getAllNodes(node, list = []) {
+            list.push({ id: node.id, name: node.name, role: node.role });
+            if (node.children) {
+                node.children.forEach(child => getAllNodes(child, list));
+            }
+            return list;
+        }
+
+        function updateParentDropdown() {
+            const select = document.getElementById("inParent");
+            select.innerHTML = '<option value="" disabled selected>Pilih Orang Tua</option>';
+            const allNodes = getAllNodes(familyData);
+            
+            allNodes.forEach(n => {
+                const option = document.createElement("option");
+                option.value = n.id;
+                option.text = `${n.name} (${n.role})`;
+                select.appendChild(option);
+            });
+        }
+
+        // --- 5. IMAGE HANDLING (BASE64) ---
+        function convertToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        // --- 6. EVENT HANDLERS ---
+
+        // Menambah Node
+        document.getElementById("addNodeForm").addEventListener("submit", async function(e) {
+            e.preventDefault();
+
+            const name = document.getElementById("inName").value;
+            const role = document.getElementById("inRole").value;
+            const parentId = document.getElementById("inParent").value;
+            const fileInput = document.getElementById("inImage");
+
+            if (!parentId) {
+                alert("Harap pilih Orang Tua node!");
+                return;
+            }
+
+            // Validasi Gambar
+            if (fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                if (file.size > 102400) { // 100KB Limit
+                    alert("Ukuran gambar terlalu besar! Maksimal 100KB.");
+                    return;
+                }
+                
+                try {
+                    const base64Img = await convertToBase64(file);
+                    
+                    // Buat Object Node Baru
+                    const newNode = {
+                        id: Date.now().toString(), // ID Unik sederhana
+                        name: name,
+                        role: role,
+                        image: base64Img,
+                        children: []
+                    };
+
+                    // Cari parent dan push node baru
+                    const parentNode = findNodeById(familyData, parentId);
+                    if (parentNode) {
+                        if(!parentNode.children) parentNode.children = [];
+                        parentNode.children.push(newNode);
+                        
+                        alert(`Berhasil menambahkan ${name}!`);
+                        document.getElementById("addNodeForm").reset();
+                        refreshUI();
+                    } else {
+                        alert("Parent tidak ditemukan (Error Logic).");
+                    }
+
+                } catch (err) {
+                    console.error(err);
+                    alert("Gagal memproses gambar.");
+                }
+            }
+        });
+
+        // Menghapus Node
+        window.deleteNode = function(id) {
+            if (id === familyData.id) {
+                if(confirm("Anda akan menghapus ROOT node. Ini akan mereset seluruh tree ke default. Lanjutkan?")) {
+                    resetData();
+                }
+                return;
+            }
+
+            if(confirm("Yakin hapus node ini? Anak/keturunannya juga akan terhapus.")) {
+                const parent = findParentOf(familyData, id);
+                if (parent) {
+                    // Filter children untuk menghapus node target
+                    parent.children = parent.children.filter(child => child.id !== id);
+                    refreshUI();
+                }
+            }
+        }
+
+        // Reset Data
+        window.resetData = function() {
+            localStorage.removeItem('familyTreeYellow');
+            location.reload();
+        }
+
+        // Init App
+        refreshUI();
+
+    </script>
+</body>
+</html>
